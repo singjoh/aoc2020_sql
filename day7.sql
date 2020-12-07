@@ -40,43 +40,18 @@ outer apply (select trim(item) c from dbo.fn_split(y.c,',')) as z
 outer apply (select charindex(' ',z.c) c, charindex(' bag',z.c) b) as w
 outer apply (select case when ISNUMERIC(substring(z.c,1,w.c-1)) = 1 then cast(substring(z.c,1,w.c-1) as int) else 0 end n, substring(z.c,w.c+1, w.b-w.c-1) as c) as v
 
-drop table if exists #part1
-create table #part1 (bag varchar(32))
-insert into #part1 values ('shiny gold')
+;with cte as ( 
+	select p, c from #data where c = 'shiny gold'
+	union all 
+	select d.p, c.c from cte c join #data d on d.c = c.p
+	)
+select count(distinct(p)) part1_recursive  
+from cte
 
-while 1=1
-begin
-	insert into #part1
-	select distinct p 
-	from #data d
-	join #part1 c
-		on c.bag = d.c
-	left join #part1 p
-		on p.bag = d.p
-	where p.bag is null
-
-	if @@ROWCOUNT = 0 break
-end
-
-select count(*) - 1 'part1' from #part1
-
-drop table if exists #part2
-create table #part2 (nestlvl int, n int, bag varchar(32))
-insert into #part2 values (1,1,'shiny gold')
-
-declare @nestlvl int = 0
-while 1=1
-begin
-	set @nestlvl = @nestlvl + 1
-	insert into #part2
-
-	select @nestlvl + 1, d.n * p.n, d.c 
-	from #part2 p
-	join #data d
-		on d.p = p.bag
-	where nestlvl = @nestlvl
-	and d.c is not null
-
-	if @@ROWCOUNT = 0 break
-end
-select sum(n) - 1 part2 from #part2
+;with cte as (
+	select p, n, c from #data where p = 'shiny gold' 
+	union all 
+	select c.p, c.n * d.n, d.c from cte c join #data d on d.p = c.c
+	)
+select sum(n) part2_recursive 
+from cte
